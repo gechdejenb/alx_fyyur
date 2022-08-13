@@ -1,0 +1,2 @@
+Defaulting to user installation because normal site-packages is not writeable
+Requirement already satisfied: Werkzeug in /home/gech/.local/lib/python3.8/site-packages (2.0.0)
