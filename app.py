@@ -82,7 +82,7 @@ class Artist(db.Model):
     facebook_link = db.Column(db.String(120), nullable=True)
     seeking_description = db.Column(db.String, nullable=True)
     website_link = db.Column(db.String(120), nullable=True)
-    looking_for_venue = db.Column(db.Boolean, nullable=True, default=False)
+    seeking_venue = db.Column(db.Boolean, nullable=True, default=False)
 
     # TODO: implement any missing fields, as a database migration using Flask-Migrate
 
@@ -103,6 +103,7 @@ class Show(db.Model):
     artist_id = db.Column(db.Integer,
                           db.ForeignKey('Artist.id'),
                           nullable=False)
+    future = db.Column(db.Boolean, nullable=False, default=True)
 
 
 db.create_all()
@@ -193,7 +194,8 @@ def show_venue(venue_id):
   # TODO: replace with real venue data from the venues table, using venue_id
     
     venue_response=Venue.query.get(venue_id)
-    previous_shows,future_shows=[]
+    previous_shows=[]
+    future_shows=[]
     shows_result=venue_response.shows
     def show_info(show):
         show_list={"artist_id": show.artist_id,
@@ -206,15 +208,26 @@ def show_venue(venue_id):
             previous_shows.append(show_list)
     [show_info(shows) for shows in shows_result]
     
-    data_venue=venue_response.asdict()
+    data_venue=  {
+        "id": venue_response.id,
+        "name": venue_response.name,
+        "genres": venue_response.genres.split(','),
+        "address": venue_response.address,
+        "city": venue_response.city,
+        "state": venue_response.state,
+        "phone": venue_response.phone,
+        "website_link": venue_response.website_link,
+        "facebook_link": venue_response.facebook_link,
+        "seeking_talent": venue_response.seeking_talent,
+        "seeking_description": venue_response.seeking_description,
+        "image_link": venue_response.image_link}
     data_shows={
         "past_shows": previous_shows,
         "upcoming_shows": future_shows,
         "past_shows_count": len(previous_shows),
         "upcoming_shows_count": len(future_shows)
     }
-    data =np.concatenate(data_venue,data_shows)
-    print(data)
+    data =data_venue.update(data_shows)
     return render_template('pages/show_venue.html', venue=data)
 
 #  Create Venue
@@ -238,7 +251,7 @@ def create_venue_submission():
   Venue.phone = data['phone']
   Venue.facebook_link = data['facebook_link']
   Venue.genres = data['genres']
-  Venue.website = data['website_link']
+  Venue.website_link = data['website_link']
   Venue.image_link = data['image_link']
 
   venue=Venue(**data)
@@ -252,7 +265,7 @@ def create_venue_submission():
   except:
     db.session.rollback()
   # TODO: on unsuccessful db insert, flash an error instead.
-    flash('An error occurred. Venue ' + data.name + ' could not be listed.')
+    flash('An error occurred. Venue ' + data['name']+ ' could not be listed.')
   # see: http://flask.pocoo.org/docs/1.0/patterns/flashing/
   finally:
     db.session.close()
@@ -284,9 +297,29 @@ def delete_venue(venue_id):
 @app.route('/artists')
 def artists():
   # TODO: replace with real data returned from querying the database
+  data =[]
+  # queyd = Artist.query.all()
+  # for list in queyd:
+  #       data.append({"id": list[0], "name": list[1]})
 
-    artists_list=Artist.query.with_entities(Artist.id,Artist.name).all()
-    return render_template('pages/artists.html', artists=artists_list)
+
+  # queyd=db.session.query(Artist.id,Artist.name).group_by(Artist.id,Artist.name).all()
+  # def append_artist(artist):
+  #       data[-1]["venues"].append({"id":artist[0],"name":artist[1],"upcoming_shows_count":artist[2]})
+  # [append_artist(artist) for artist in queyd]
+  # queyd = db.session.query(Artist).all()
+  # for list in queyd:
+  #           data["data"].append({"id":list.id,"name":list.name})
+  # print(data)
+  # queyd = Artist.query.all()
+  # data =[]
+  # for list in queyd:
+  #       data.append({"id": list[0], "name": list[1]})
+  data=Artist.query.with_entities(Artist.id, Artist.name).all()
+
+
+
+  return render_template('pages/artists.html', artists=data)
 
 @app.route('/artists/search', methods=['POST'])
 def search_artists():
@@ -305,7 +338,8 @@ def show_artist(artist_id):
   # shows the artist page with the given artist_id
   # TODO: replace with real artist data from the artist table, using artist_id
   artist_response=Artist.query.get(artist_id)
-  previous_shows,future_shows=[]
+  previous_shows=[]
+  future_shows=[]
   shows_result=artist_response.shows
   def show_info(show):
     show_list={"venue_id": show.venue_id,
@@ -318,14 +352,27 @@ def show_artist(artist_id):
         previous_shows.append(show_list)
     [show_info(shows) for shows in shows_result]
 
-  data_artist=artist_response.asdict()
+  data_artist = {
+        "id": artist_response.id,
+        "name": artist_response.name,
+        "genres": artist_response.genres.split(','),
+        "city": artist_response.city,
+        "state": artist_response.state,
+        "phone": artist_response.phone,
+        "website": artist_response.website_link,
+        "facebook_link": artist_response.facebook_link,
+        "seeking_venue": artist_response.seeking_venue,
+        "seeking_description": artist_response.seeking_description,
+        "image_link": artist_response.image_link}
+
   data_shows={
     "past_shows": previous_shows,
     "upcoming_shows": future_shows,
     "past_shows_count": len(previous_shows),
     "upcoming_shows_count": len(future_shows)
     }
-  data =np.concatenate(data_artist,data_shows)
+  data =data_artist.update(data_shows)
+  print(data)
 
 
   return render_template('pages/show_artist.html', artist=data)
@@ -471,7 +518,7 @@ def create_show_submission():
   Show.start_time = datetime(Date_List[0], Date_List[1], Date_List[2], Date_List[3],
                                   Date_List[4], Date_List[5])
   now = datetime.now()
-  Show.upcoming = (now < Show.start_time)
+  Show.future = (now < Show.start_time)
   show=Show(**data)
   try:
       db.session.add(show)
